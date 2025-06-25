@@ -17,7 +17,6 @@ When you use the Bot, we automatically collect:
 - **Discord Server Information**:
   - Server ID (Discord Guild ID)
   - Channel IDs where the Bot is used
-  - Server member count (for analytics)
 
 - **User Interaction Data**:
   - User ID (Discord User ID) when you use commands
@@ -56,7 +55,6 @@ We do not collect:
 We use your information to:
 - Provide WoW Token price notifications and alerts
 - Send price threshold notifications to designated Discord channels
-- Maintain user preferences and settings
 - Ensure the Bot functions correctly in your server
 
 ### 3.2 Secondary Uses
@@ -79,9 +77,8 @@ Our legal basis for processing your data includes:
 ### 4.1 Data Storage
 
 - **Database**: Your settings and preferences are stored securely in Supabase, a cloud database service
-- **Location**: Data is stored on servers located in [DATA_CENTER_REGION]
+- **Location**: Data is stored on servers located in AWS/US-EAST-1
 - **Encryption**: Data is encrypted both in transit and at rest
-- **Backup**: Regular backups are maintained for data recovery purposes
 
 ### 4.2 Security Measures
 
@@ -94,10 +91,7 @@ We implement appropriate security measures including:
 
 ### 4.3 Data Retention
 
-- **Active Use**: Data is retained while the Bot is active in your Discord server
-- **Inactive Servers**: Data is automatically deleted 30 days after the Bot is removed from a server
 - **User Request**: Data can be deleted immediately upon user request
-- **Legal Requirements**: Some data may be retained longer if required by law
 
 ## 5. Data Sharing and Third Parties
 
@@ -137,17 +131,13 @@ We may disclose your information if required by law, legal process, or to:
 ### 6.1 Access and Control
 
 You have the right to:
-- **Access**: View what data we have about you
-- **Rectification**: Correct inaccurate or incomplete data
 - **Deletion**: Request deletion of your data ("Right to be Forgotten")
-- **Portability**: Request a copy of your data in a machine-readable format
 - **Objection**: Object to certain types of data processing
 
 ### 6.2 How to Exercise Your Rights
 
 To exercise these rights, contact us at:
-- **GitHub Issues**: [https://github.com/jasonb194/WoWToken/issues](https://github.com/jasonb194/WoWToken/issues)
-- **Email**: [YOUR_EMAIL] (when you add it)
+- **GitHub**
 
 ### 6.3 Automated Decision Making
 
@@ -155,7 +145,7 @@ The Bot does not use automated decision-making or profiling that significantly a
 
 ## 7. International Data Transfers
 
-If you are located outside of [YOUR_COUNTRY], your data may be transferred to and processed in countries with different data protection laws. We ensure appropriate safeguards are in place for such transfers.
+If you are located outside of United States, your data may be transferred to and processed in countries with different data protection laws. We ensure appropriate safeguards are in place for such transfers.
 
 ## 8. Children's Privacy
 
@@ -164,7 +154,6 @@ The Bot is not intended for children under 13 years of age. We do not knowingly 
 ## 9. Data Breach Notification
 
 In the event of a data breach that may affect your personal information, we will:
-- Notify affected users within 72 hours when feasible
 - Report the breach to relevant authorities as required
 - Take immediate steps to secure the affected systems
 - Provide guidance on protective measures you can take
@@ -175,9 +164,8 @@ In the event of a data breach that may affect your personal information, we will
 
 We may update this Privacy Policy from time to time. When we do:
 - We will update the "Last Updated" date
-- Significant changes will be announced through the Bot or our GitHub repository
+- Significant changes will be announced through our GitHub repository
 - Continued use of the Bot after changes constitutes acceptance
-- You will be notified of material changes that affect your rights
 
 ### 10.2 Version History
 
@@ -187,8 +175,7 @@ Previous versions of this Privacy Policy are available in our GitHub repository 
 
 If you have questions, concerns, or requests regarding this Privacy Policy or your data, please contact us:
 
-- **GitHub Issues**: [https://github.com/jasonb194/WoWToken/issues](https://github.com/jasonb194/WoWToken/issues)
-- **Email**: [YOUR_EMAIL] (for privacy-specific inquiries)
+- **GitHub**
 - **Response Time**: We aim to respond within 5-7 business days
 
 ## 12. Regional Privacy Laws
@@ -211,4 +198,4 @@ For Discord server administrators who need a Data Processing Agreement (DPA) for
 
 ---
 
-**This Privacy Policy is effective as of [DATE] and governs the privacy practices of the WoW Token Bot. By using the Bot, you acknowledge that you have read and understood this Privacy Policy.** 
+**This Privacy Policy is effective as of 2025-06-24 and governs the privacy practices of the WoW Token Bot. By using the Bot, you acknowledge that you have read and understood this Privacy Policy.** 

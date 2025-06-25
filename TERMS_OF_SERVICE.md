@@ -1,6 +1,6 @@
 # Terms of Service - WoW Token Bot
 
-**Last Updated: [DATE]**
+**Last Updated: [2025-06-24]**
 
 ## 1. Acceptance of Terms
 
@@ -131,7 +131,7 @@ If any provision of these Terms is found to be unenforceable, the remaining prov
 
 If you have questions about these Terms or the Bot, please contact us at:
 
-- **GitHub**: [https://github.com/jasonb194/WoWToken] (for technical issues)
+- **GitHub**
 
 ## 14. Acknowledgments
 
