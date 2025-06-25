@@ -131,7 +131,7 @@ If any provision of these Terms is found to be unenforceable, the remaining prov
 
 If you have questions about these Terms or the Bot, please contact us at:
 
-- **GitHub**: [Jason] (for technical issues)
+- **GitHub**: [https://github.com/jasonb194/WoWToken] (for technical issues)
 
 ## 14. Acknowledgments
 
