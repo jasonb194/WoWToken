@@ -235,7 +235,8 @@ async function handleInteraction(interaction) {
                 return {
                     type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                     data: {
-                        content: `Current WoW Token price in ${region}: ${price.toLocaleString()} gold`
+                        content: `Current WoW Token price in ${region}: ${price.toLocaleString()} gold`,
+                        flags: 64 // Ephemeral flag
                     }
                 };
             } catch (error) {
@@ -243,7 +244,8 @@ async function handleInteraction(interaction) {
                 return {
                     type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                     data: {
-                        content: 'Sorry, I encountered an error while fetching the token price.'
+                        content: 'Sorry, I encountered an error while fetching the token price.',
+                        flags: 64 // Ephemeral flag
                     }
                 };
             }
@@ -352,7 +354,8 @@ async function handleInteraction(interaction) {
         return {
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
-                content: 'Unknown command'
+                content: 'Unknown command',
+                flags: 64 // Ephemeral flag
             }
         };
     }
