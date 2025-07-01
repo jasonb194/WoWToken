@@ -241,13 +241,13 @@ async function checkPrices() {
                     // Price is above sell threshold and we haven't notified to sell yet
                     shouldNotify = true;
                     newAction = 'SELL';
-                    message = `🚨 **Token Price Alert**\nRegion: ${region}\nCurrent Price: ${price.toLocaleString()} gold\nAction: **SELL** - Price is above threshold of ${settings.sellThreshold.toLocaleString()} gold`;
+                    message = `🚨 **Token Price Alert**\nRegion: ${region}\nCurrent Price: ${price.toLocaleString()} gold\nAction: **SELL** - Price is above threshold of ${settings.sellThreshold.toLocaleString()} gold\nWill notify again when price drops below ${settings.holdThreshold.toLocaleString()} gold`;
                     logger.info('Triggering SELL notification');
                 } else if (price <= settings.holdThreshold && settings.lastAction !== 'BUY') {
                     // Price is below hold threshold and we haven't notified to buy yet
                     shouldNotify = true;
                     newAction = 'BUY';
-                    message = `🚨 **Token Price Alert**\nRegion: ${region}\nCurrent Price: ${price.toLocaleString()} gold\nAction: **HOLD** - Price is below threshold of ${settings.holdThreshold.toLocaleString()} gold`;
+                    message = `🚨 **Token Price Alert**\nRegion: ${region}\nCurrent Price: ${price.toLocaleString()} gold\nAction: **HOLD** - Price is below threshold of ${settings.holdThreshold.toLocaleString()} gold\nWill notify again when price exceeds ${settings.sellThreshold.toLocaleString()} gold`;
                     logger.info('Triggering BUY notification');
                 } else {
                     logger.info('No notification needed', {

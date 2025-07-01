@@ -39,28 +39,35 @@ module.exports = async (req, res) => {
             return res.status(401).json({ error: 'Unauthorized' });
         }
 
-        logger.info('Request authorized, starting price check in background...');
+        logger.info('Request authorized, starting price check...');
         
-        // Return 200 immediately
-        res.status(200).json({ 
-            status: 'accepted',
-            message: 'Price check started',
-            timestamp: new Date().toISOString()
-        });
-        
-        // Continue processing in background (don't await)
-        checkPrices().then(async result => {
+        // Process synchronously to ensure logs are written
+        try {
+            const result = await checkPrices();
             logger.info('Price check completed successfully', result);
             logger.info('VERCEL CHECK-PRICES FUNCTION COMPLETED');
             await logger.flush();
-        }).catch(async error => {
-            logger.error('Error in background price check', {
-                message: error.message,
-                stack: error.stack
+            
+            return res.status(200).json({ 
+                status: 'completed',
+                message: 'Price check completed successfully',
+                result,
+                timestamp: new Date().toISOString()
             });
-            logger.error('VERCEL CHECK-PRICES FUNCTION ERROR');
+        } catch (priceCheckError) {
+            logger.error('Error in price check', {
+                message: priceCheckError.message,
+                stack: priceCheckError.stack
+            });
             await logger.flush();
-        });
+            
+            return res.status(500).json({ 
+                status: 'error',
+                message: 'Price check failed',
+                error: priceCheckError.message,
+                timestamp: new Date().toISOString()
+            });
+        }
         
     } catch (error) {
         logger.error('Error in check-prices endpoint', {
