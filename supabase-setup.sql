@@ -26,4 +26,30 @@ CREATE INDEX IF NOT EXISTS idx_notification_settings_id ON notification_settings
 -- Insert a default row if none exists
 INSERT INTO notification_settings (id, channel_id, sell_threshold, hold_threshold, last_action, last_notified)
 VALUES ('default', NULL, NULL, NULL, NULL, NULL)
-ON CONFLICT (id) DO NOTHING; 
+ON CONFLICT (id) DO NOTHING;
+
+-- Create the logs table for application logging
+CREATE TABLE IF NOT EXISTS logs (
+    id BIGSERIAL PRIMARY KEY,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    level TEXT NOT NULL DEFAULT 'info',
+    message TEXT NOT NULL,
+    function_name TEXT,
+    metadata JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable Row Level Security for logs table
+ALTER TABLE logs ENABLE ROW LEVEL SECURITY;
+
+-- Create a policy to allow all operations on logs
+CREATE POLICY "Allow all operations on logs"
+ON logs
+FOR ALL
+USING (true)
+WITH CHECK (true);
+
+-- Create indexes for efficient querying
+CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON logs(timestamp);
+CREATE INDEX IF NOT EXISTS idx_logs_level ON logs(level);
+CREATE INDEX IF NOT EXISTS idx_logs_function_name ON logs(function_name); 

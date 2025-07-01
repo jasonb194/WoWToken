@@ -1,5 +1,6 @@
 const { Client, GatewayIntentBits } = require('discord.js');
 const { checkPrices } = require('../src/tasks/checkPrices');
+const Logger = require('../src/lib/logger');
 
 // Initialize Discord client for notifications
 const client = new Client({
@@ -13,34 +14,62 @@ const client = new Client({
 
 // Export the handler for Vercel
 module.exports = async (req, res) => {
+    const logger = new Logger('check-prices-api');
+    
     try {
-        console.log('=== VERCEL CHECK-PRICES FUNCTION STARTED ===');
-        console.log('Request method:', req.method);
-        console.log('Request headers:', JSON.stringify(req.headers, null, 2));
-        console.log('User-Agent:', req.headers['user-agent']);
+        logger.info('VERCEL CHECK-PRICES FUNCTION STARTED');
+        logger.info('Request details', {
+            method: req.method,
+            headers: req.headers,
+            userAgent: req.headers['user-agent']
+        });
         
         //Check for UptimeRobot by examining the user-agent
         const userAgent = req.headers['user-agent'] || '';
         const isUptimeRobot = userAgent.includes('UptimeRobot');
         
-        console.log('Is UptimeRobot request:', isUptimeRobot);
+        logger.info('Authorization check', { 
+            userAgent,
+            isUptimeRobot 
+        });
         
         if (!isUptimeRobot) {
-            console.log('Request not from UptimeRobot, returning unauthorized');
+            logger.warn('Request not from UptimeRobot, returning unauthorized');
+            await logger.flush();
             return res.status(401).json({ error: 'Unauthorized' });
         }
 
-        console.log('Request authorized, running price check...');
-        const result = await checkPrices();
+        logger.info('Request authorized, starting price check in background...');
         
-        console.log('Price check result:', JSON.stringify(result, null, 2));
-        console.log('=== VERCEL CHECK-PRICES FUNCTION COMPLETED ===');
+        // Return 200 immediately
+        res.status(200).json({ 
+            status: 'accepted',
+            message: 'Price check started',
+            timestamp: new Date().toISOString()
+        });
         
-        return res.status(200).json(result);
+        // Continue processing in background (don't await)
+        checkPrices().then(async result => {
+            logger.info('Price check completed successfully', result);
+            logger.info('VERCEL CHECK-PRICES FUNCTION COMPLETED');
+            await logger.flush();
+        }).catch(async error => {
+            logger.error('Error in background price check', {
+                message: error.message,
+                stack: error.stack
+            });
+            logger.error('VERCEL CHECK-PRICES FUNCTION ERROR');
+            await logger.flush();
+        });
+        
     } catch (error) {
-        console.error('Error in check-prices endpoint:', error);
-        console.error('Error stack:', error.stack);
-        console.error('=== VERCEL CHECK-PRICES FUNCTION ERROR ===');
+        logger.error('Error in check-prices endpoint', {
+            message: error.message,
+            stack: error.stack
+        });
+        logger.error('VERCEL CHECK-PRICES FUNCTION ERROR');
+        await logger.flush();
+        
         return res.status(500).json({ 
             error: 'Internal server error',
             message: error.message,
