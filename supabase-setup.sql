@@ -6,6 +6,8 @@ CREATE TABLE IF NOT EXISTS notification_settings (
     hold_threshold NUMERIC,
     last_action TEXT,
     last_notified TIMESTAMP WITH TIME ZONE,
+    message_id TEXT, -- Store the Discord message ID for editing
+    current_price NUMERIC, -- Track the current price
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -24,8 +26,8 @@ WITH CHECK (true);
 CREATE INDEX IF NOT EXISTS idx_notification_settings_id ON notification_settings(id);
 
 -- Insert a default row if none exists
-INSERT INTO notification_settings (id, channel_id, sell_threshold, hold_threshold, last_action, last_notified)
-VALUES ('default', NULL, NULL, NULL, NULL, NULL)
+INSERT INTO notification_settings (id, channel_id, sell_threshold, hold_threshold, last_action, last_notified, message_id, current_price)
+VALUES ('default', NULL, NULL, NULL, NULL, NULL, NULL, NULL)
 ON CONFLICT (id) DO NOTHING;
 
 -- Create the logs table for application logging
