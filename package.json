@@ -2,11 +2,17 @@
   "name": "wow-token-bot",
   "version": "1.0.0",
   "description": "Discord bot for tracking WoW Token prices",
-  "main": "src/index.js",
+  "main": "dist/index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "nodemon src/index.js",
-    "deploy": "node src/deploy-commands.js"
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "nodemon --watch 'src/**/*.ts' --exec 'ts-node' src/index.ts",
+    "deploy:discord:only": "ts-node src/deploy-commands.ts",
+    "deploy:discord": "run-s build deploy:discord:only",
+    "deploy:vercel:only": "vercel deploy --prod",
+    "deploy:vercel": "run-s build deploy:vercel:only",
+    "deploy:vercel:dev": "run-s build \"deploy:vercel:only -- \"",
+    "deploy:all": "run-s build deploy:discord:only deploy:vercel:only"
   },
   "keywords": [
     "discord",
@@ -24,6 +30,12 @@
     "dotenv": "^16.3.1"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "@types/node": "^20.11.24",
+    "@vercel/node": "^5.3.6",
+    "discord-api-types": "^0.38.16",
+    "nodemon": "^3.0.1",
+    "npm-run-all": "^4.1.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
   }
 }

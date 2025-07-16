@@ -1,14 +1,53 @@
-const supabase = require('./supabase');
+import { SupabaseClient } from '@supabase/supabase-js';
+import supabase from './supabase';
+
+type LogMetadata = Record<string, unknown> | null;
+
+interface LogEntry {
+    timestamp: string;
+    level: 'info' | 'error' | 'warn' | 'debug';
+    message: string;
+    metadata: LogMetadata;
+}
+
+interface DatabaseLogEntry {
+    timestamp: string;
+    level: 'info' | 'error' | 'warn' | 'debug';
+    message: string;
+    function_name: string;
+    metadata: string;
+}
+
+interface LogSummary {
+    functionName: string;
+    startTime: string;
+    endTime: string;
+    duration: string;
+    totalLogs: number;
+    logLevels: Record<string, number>;
+}
+
+interface FlushResult {
+    success: boolean;
+    count: number;
+    error?: string;
+    skipped?: boolean;
+    reason?: string;
+}
 
 class Logger {
-    constructor(functionName = 'unknown') {
+    private functionName: string;
+    private logs: LogEntry[];
+    private startTime: Date;
+
+    constructor(functionName: string = 'unknown') {
         this.functionName = functionName;
         this.logs = [];
         this.startTime = new Date();
     }
 
-    log(level, message, metadata = null) {
-        const logEntry = {
+    private log(level: LogEntry['level'], message: string, metadata: LogMetadata = null): void {
+        const logEntry: LogEntry = {
             timestamp: new Date().toISOString(),
             level,
             message,
@@ -21,23 +60,23 @@ class Logger {
         console.log(`[${level.toUpperCase()}] ${this.functionName}: ${message}`, metadata || '');
     }
 
-    info(message, metadata = null) {
+    public info(message: string, metadata: LogMetadata = null): void {
         this.log('info', message, metadata);
     }
 
-    error(message, metadata = null) {
+    public error(message: string, metadata: LogMetadata = null): void {
         this.log('error', message, metadata);
     }
 
-    warn(message, metadata = null) {
+    public warn(message: string, metadata: LogMetadata = null): void {
         this.log('warn', message, metadata);
     }
 
-    debug(message, metadata = null) {
+    public debug(message: string, metadata: LogMetadata = null): void {
         this.log('debug', message, metadata);
     }
 
-    async flush() {
+    public async flush(): Promise<FlushResult> {
         if (this.logs.length === 0) {
             return { success: true, count: 0 };
         }
@@ -49,17 +88,22 @@ class Logger {
             // No errors, just clear logs and return success without writing to DB
             const logCount = this.logs.length;
             this.logs = [];
-            return { success: true, count: logCount, skipped: true, reason: 'No errors to log' };
+            return { 
+                success: true, 
+                count: logCount, 
+                skipped: true, 
+                reason: 'No errors to log' 
+            };
         }
 
         try {
             const endTime = new Date();
-            const duration = endTime - this.startTime;
+            const duration = endTime.getTime() - this.startTime.getTime();
             
             // Create a single combined log entry with all logs as JSON
-            const combinedLogEntry = {
+            const combinedLogEntry: DatabaseLogEntry = {
                 timestamp: this.startTime.toISOString(),
-                level: 'error', // Set to error since we only log when there are errors
+                level: 'error',
                 message: `Function execution with errors: ${this.functionName}`,
                 function_name: this.functionName,
                 metadata: JSON.stringify({
@@ -68,7 +112,7 @@ class Logger {
                         endTime: endTime.toISOString(),
                         duration: `${duration}ms`,
                         totalLogs: this.logs.length,
-                        logLevels: this.logs.reduce((acc, log) => {
+                        logLevels: this.logs.reduce<Record<string, number>>((acc, log) => {
                             acc[log.level] = (acc[log.level] || 0) + 1;
                             return acc;
                         }, {})
@@ -77,13 +121,17 @@ class Logger {
                 })
             };
 
-            const { data, error } = await supabase
+            const { error } = await supabase
                 .from('logs')
                 .insert([combinedLogEntry]);
 
             if (error) {
                 console.error('Failed to write error log to Supabase:', error);
-                return { success: false, error: error.message, count: this.logs.length };
+                return { 
+                    success: false, 
+                    error: error.message, 
+                    count: this.logs.length 
+                };
             }
 
             const logCount = this.logs.length;
@@ -91,14 +139,19 @@ class Logger {
             
             return { success: true, count: logCount };
         } catch (err) {
-            console.error('Exception writing error log to Supabase:', err);
-            return { success: false, error: err.message, count: this.logs.length };
+            const error = err as Error;
+            console.error('Exception writing error log to Supabase:', error);
+            return { 
+                success: false, 
+                error: error.message, 
+                count: this.logs.length 
+            };
         }
     }
 
-    getLogSummary() {
+    public getLogSummary(): LogSummary {
         const endTime = new Date();
-        const duration = endTime - this.startTime;
+        const duration = endTime.getTime() - this.startTime.getTime();
         
         return {
             functionName: this.functionName,
@@ -106,7 +159,7 @@ class Logger {
             endTime: endTime.toISOString(),
             duration: `${duration}ms`,
             totalLogs: this.logs.length,
-            logLevels: this.logs.reduce((acc, log) => {
+            logLevels: this.logs.reduce<Record<string, number>>((acc, log) => {
                 acc[log.level] = (acc[log.level] || 0) + 1;
                 return acc;
             }, {})
@@ -114,4 +167,4 @@ class Logger {
     }
 }
 
-module.exports = Logger; 
+export default Logger; 

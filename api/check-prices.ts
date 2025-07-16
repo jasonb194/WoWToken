@@ -1,6 +1,7 @@
-const { Client, GatewayIntentBits } = require('discord.js');
-const { checkPrices } = require('../src/tasks/checkPrices');
-const Logger = require('../src/lib/logger');
+import { Client, GatewayIntentBits } from 'discord.js';
+import { checkPrices } from '../src/tasks/checkPrices';
+import Logger from '../src/lib/logger';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // Initialize Discord client for notifications
 const client = new Client({
@@ -12,8 +13,19 @@ const client = new Client({
     ]
 });
 
+interface ApiResponse {
+    status?: 'completed' | 'error';
+    message: string;
+    error?: string;
+    result?: any;
+    timestamp: string;
+}
+
 // Export the handler for Vercel
-module.exports = async (req, res) => {
+export default async function handler(
+    req: VercelRequest,
+    res: VercelResponse
+): Promise<VercelResponse<ApiResponse>> {
     const logger = new Logger('check-prices-api');
     
     try {
@@ -36,7 +48,10 @@ module.exports = async (req, res) => {
         if (!isUptimeRobot) {
             logger.warn('Request not from UptimeRobot, returning unauthorized');
             await logger.flush();
-            return res.status(401).json({ error: 'Unauthorized' });
+            return res.status(401).json({ 
+                message: 'Unauthorized',
+                timestamp: new Date().toISOString()
+            });
         }
 
         logger.info('Request authorized, starting price check...');
@@ -55,32 +70,34 @@ module.exports = async (req, res) => {
                 timestamp: new Date().toISOString()
             });
         } catch (priceCheckError) {
+            const error = priceCheckError as Error;
             logger.error('Error in price check', {
-                message: priceCheckError.message,
-                stack: priceCheckError.stack
+                message: error.message,
+                stack: error.stack
             });
             await logger.flush();
             
             return res.status(500).json({ 
                 status: 'error',
                 message: 'Price check failed',
-                error: priceCheckError.message,
+                error: error.message,
                 timestamp: new Date().toISOString()
             });
         }
         
     } catch (error) {
+        const err = error as Error;
         logger.error('Error in check-prices endpoint', {
-            message: error.message,
-            stack: error.stack
+            message: err.message,
+            stack: err.stack
         });
         logger.error('VERCEL CHECK-PRICES FUNCTION ERROR');
         await logger.flush();
         
         return res.status(500).json({ 
-            error: 'Internal server error',
-            message: error.message,
+            message: 'Internal server error',
+            error: err.message,
             timestamp: new Date().toISOString()
         });
     }
-}; 
+} 
