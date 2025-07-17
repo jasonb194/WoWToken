@@ -1,10 +1,11 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+
 // Import handlers
-const interactionsHandler = require('./interactions');
-const testHandler = require('./test');
+import interactionsHandler from './interactions';
 
 // Route handler
-module.exports = async (req, res) => {
-    const { path } = req;
+export default async function handler(req: VercelRequest, res: VercelResponse): Promise<VercelResponse> {
+    const path = req.url || '';
 
     // Log the incoming request
     console.log(`Received request to ${path}`);
@@ -12,14 +13,12 @@ module.exports = async (req, res) => {
     // Route to appropriate handler
     if (path === '/api/interactions') {
         return await interactionsHandler(req, res);
-    } else if (path === '/api/test') {
-        return await testHandler(req, res);
     } else {
         console.log(`No handler found for path: ${path}`);
-        res.status(404).json({ 
+        return res.status(404).json({ 
             error: 'Not found',
             path: path,
-            availableEndpoints: ['/api/interactions', '/api/test']
+            availableEndpoints: ['/api/interactions']
         });
     }
-}; 
+} 

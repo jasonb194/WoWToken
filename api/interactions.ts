@@ -1,10 +1,39 @@
-const { InteractionType, InteractionResponseType } = require('discord-interactions');
-const { verifyKey } = require('discord-interactions');
-const axios = require('axios');
-const supabase = require('../src/lib/supabase');
+import { verifyKey } from 'discord-interactions';
+import { 
+    APIInteraction, 
+    APIInteractionResponse,
+    InteractionType,
+    InteractionResponseType,
+    APIApplicationCommandInteractionData,
+    APIChatInputApplicationCommandInteractionData,
+    APIApplicationCommandInteractionDataOption,
+    ApplicationCommandOptionType
+} from 'discord-api-types/v10';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import axios from 'axios';
+import supabase from '../src/lib/supabase';
+
+interface NotificationSettings {
+    channelId: string;
+    sellThreshold: number;
+    holdThreshold: number;
+    lastAction: string | null;
+    lastNotified: string | null;
+}
+
+interface DatabaseNotificationSettings {
+    id: string;
+    channel_id: string;
+    sell_threshold: number;
+    hold_threshold: number;
+    last_action: string | null;
+    last_notified: string | null;
+    created_at: string;
+    updated_at: string;
+}
 
 // Blizzard API endpoints
-const API_ENDPOINTS = {
+const API_ENDPOINTS: Record<string, string> = {
     US: 'https://us.api.blizzard.com/data/wow/token/index',
     EU: 'https://eu.api.blizzard.com/data/wow/token/index',
     KR: 'https://kr.api.blizzard.com/data/wow/token/index',
@@ -12,7 +41,7 @@ const API_ENDPOINTS = {
 };
 
 // Load notification settings from Supabase
-async function loadNotificationSettings() {
+async function loadNotificationSettings(): Promise<NotificationSettings | null> {
     try {
         console.log('=== LOAD NOTIFICATION SETTINGS STARTED ===');
         
@@ -20,7 +49,7 @@ async function loadNotificationSettings() {
             .from('notification_settings')
             .select('*')
             .eq('id', 'default')
-            .single();
+            .single<DatabaseNotificationSettings>();
         
         if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
             console.error('Error loading notification settings:', error);
@@ -33,7 +62,7 @@ async function loadNotificationSettings() {
         }
         
         // Map database fields to expected format
-        const settings = {
+        const settings: NotificationSettings = {
             channelId: data.channel_id,
             sellThreshold: data.sell_threshold,
             holdThreshold: data.hold_threshold,
@@ -47,13 +76,15 @@ async function loadNotificationSettings() {
     } catch (error) {
         console.error('=== LOAD NOTIFICATION SETTINGS ERROR ===');
         console.error('Error loading notification settings:', error);
-        console.error('Error stack:', error.stack);
+        if (error instanceof Error) {
+            console.error('Error stack:', error.stack);
+        }
         return null;
     }
 }
 
 // Save notification settings to Supabase  
-async function saveNotificationSettings(settings) {
+async function saveNotificationSettings(settings: NotificationSettings): Promise<void> {
     try {
         console.log('=== SAVE NOTIFICATION SETTINGS STARTED ===');
         console.log('Settings to save:', JSON.stringify(settings, null, 2));
@@ -87,40 +118,54 @@ async function saveNotificationSettings(settings) {
     } catch (error) {
         console.error('=== SAVE NOTIFICATION SETTINGS ERROR ===');
         console.error('Error saving notification settings:', error);
-        console.error('Error stack:', error.stack);
-        console.error('Error message:', error.message);
+        if (error instanceof Error) {
+            console.error('Error stack:', error.stack);
+            console.error('Error message:', error.message);
+        }
         throw error;
     }
 }
 
+interface AccessTokenResponse {
+    access_token: string;
+}
+
 // Get access token from Blizzard API
-async function getAccessToken() {
+async function getAccessToken(): Promise<string> {
     try {
         console.log('Getting access token...');
-        const response = await axios.post('https://oauth.battle.net/token', null, {
+        const response = await axios.post<AccessTokenResponse>('https://oauth.battle.net/token', null, {
             params: {
                 grant_type: 'client_credentials'
             },
             auth: {
-                username: process.env.BLIZZARD_CLIENT_ID,
-                password: process.env.BLIZZARD_CLIENT_SECRET
+                username: process.env.BLIZZARD_CLIENT_ID || '',
+                password: process.env.BLIZZARD_CLIENT_SECRET || ''
             }
         });
         console.log('Access token received successfully');
         return response.data.access_token;
     } catch (error) {
-        console.error('Error getting access token:', {
-            message: error.message,
-            response: error.response?.data,
-            status: error.response?.status,
-            headers: error.response?.headers
-        });
+        if (axios.isAxiosError(error)) {
+            console.error('Error getting access token:', {
+                message: error.message,
+                response: error.response?.data,
+                status: error.response?.status,
+                headers: error.response?.headers
+            });
+        } else {
+            console.error('Error getting access token:', error);
+        }
         throw new Error('Failed to get access token');
     }
 }
 
+interface TokenResponse {
+    price: number;
+}
+
 // Get token price for a region
-async function getTokenPrice(region, accessToken) {
+async function getTokenPrice(region: string, accessToken: string): Promise<number> {
     try {
         console.log(`Getting token price for ${region}...`);
         const url = API_ENDPOINTS[region];
@@ -136,7 +181,7 @@ async function getTokenPrice(region, accessToken) {
         
         console.log(`Fetching token price from ${url} with params:`, params);
         
-        const response = await axios.get(url, { 
+        const response = await axios.get<TokenResponse>(url, { 
             params,
             headers: {
                 'Authorization': `Bearer ${accessToken}`
@@ -155,20 +200,40 @@ async function getTokenPrice(region, accessToken) {
         // Convert from copper to gold (1 gold = 10000 copper)
         return response.data.price / 10000;
     } catch (error) {
-        console.error(`Error getting token price for ${region}:`, {
-            message: error.message,
-            response: error.response?.data,
-            status: error.response?.status,
-            headers: error.response?.headers
-        });
+        if (axios.isAxiosError(error)) {
+            console.error(`Error getting token price for ${region}:`, {
+                message: error.message,
+                response: error.response?.data,
+                status: error.response?.status,
+                headers: error.response?.headers
+            });
+        } else {
+            console.error(`Error getting token price for ${region}:`, error);
+        }
         throw new Error(`Failed to get token price for ${region}`);
     }
 }
 
+interface VercelRequestWithRawBody extends VercelRequest {
+    rawBody?: string;
+}
+
+interface CommandNumberOption {
+    name: string;
+    type: ApplicationCommandOptionType.Number;
+    value: number;
+}
+
+interface CommandStringOption {
+    name: string;
+    type: ApplicationCommandOptionType.String;
+    value: string;
+}
+
 // Verify the request is from Discord
-function verifyDiscordRequest(request) {
-    const signature = request.headers['x-signature-ed25519'];
-    const timestamp = request.headers['x-signature-timestamp'];
+function verifyDiscordRequest(request: VercelRequestWithRawBody): void {
+    const signature = request.headers['x-signature-ed25519'] as string;
+    const timestamp = request.headers['x-signature-timestamp'] as string;
     const rawBody = request.rawBody || JSON.stringify(request.body);
     
     // Debug logging
@@ -216,24 +281,27 @@ function verifyDiscordRequest(request) {
 }
 
 // Handle the interaction
-async function handleInteraction(interaction) {
-    if (interaction.type === InteractionType.PING) {
-        return { type: InteractionResponseType.PONG };
+async function handleInteraction(interaction: APIInteraction): Promise<APIInteractionResponse> {
+    if (interaction.type === InteractionType.Ping) {
+        return { type: InteractionResponseType.Pong };
     }
 
-    if (interaction.type === InteractionType.APPLICATION_COMMAND) {
+    if (interaction.type === InteractionType.ApplicationCommand) {
+        const commandData = interaction.data as APIChatInputApplicationCommandInteractionData;
+        
         // Handle token command
-        if (interaction.data.name === 'token') {
+        if (commandData.name === 'token') {
             try {
                 // Get region from options or default to US
-                const region = interaction.data.options?.[0]?.value || 'US';
+                const regionOption = commandData.options?.[0] as CommandStringOption | undefined;
+                const region = regionOption?.value || 'US';
                 
                 // Get token price
                 const accessToken = await getAccessToken();
                 const price = await getTokenPrice(region, accessToken);
                 
                 return {
-                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                    type: InteractionResponseType.ChannelMessageWithSource,
                     data: {
                         content: `Current WoW Token price in ${region}: ${price.toLocaleString()} gold`,
                         flags: 64 // Ephemeral flag
@@ -242,7 +310,7 @@ async function handleInteraction(interaction) {
             } catch (error) {
                 console.error('Error in token command:', error);
                 return {
-                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                    type: InteractionResponseType.ChannelMessageWithSource,
                     data: {
                         content: 'Sorry, I encountered an error while fetching the token price.',
                         flags: 64 // Ephemeral flag
@@ -251,51 +319,46 @@ async function handleInteraction(interaction) {
             }
         }
         // Handle notify command
-        else if (interaction.data.name === 'notify') {
-            // console.log('=== NOTIFY COMMAND STARTED ===');
-            // console.log('Interaction data:', JSON.stringify(interaction, null, 2));
-            
+        else if (commandData.name === 'notify') {
             try {
-                // console.log('Step 1: Checking user authorization...');
-                
                 // Check if user is authorized (comma-separated list in environment variable)
                 const authorizedUsers = process.env.AUTHORIZED_USERS?.split(',').map(u => u.trim()) || [];
-                // console.log('Authorized users:', authorizedUsers);
                 
                 const username = interaction.member?.user?.username || interaction.user?.username;
-                // console.log('Current user username:', username);
-                // console.log('User object:', JSON.stringify(interaction.member?.user || interaction.user, null, 2));
                 
-                if (!authorizedUsers.includes(username)) {
-                    // console.log('User not authorized, rejecting command');
+                if (!authorizedUsers.includes(username || '')) {
                     return {
-                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                        type: InteractionResponseType.ChannelMessageWithSource,
                         data: {
                             content: `You are not authorized to use this command. Authorized users: ${authorizedUsers.join(', ')}`,
                             flags: 64 // Ephemeral flag
                         }
                     };
                 }
-                
-                // console.log('Step 2: User authorized, extracting options...');
 
-                const sellThreshold = interaction.data.options.find(opt => opt.name === 'sell_threshold')?.value;
-                const holdThreshold = interaction.data.options.find(opt => opt.name === 'hold_threshold')?.value;
-                const channel = interaction.data.options.find(opt => opt.name === 'channel')?.value;
+                const options = commandData.options || [];
+                const sellThresholdOption = options.find(opt => opt.name === 'sell_threshold') as CommandNumberOption;
+                const holdThresholdOption = options.find(opt => opt.name === 'hold_threshold') as CommandNumberOption;
+                const channelOption = options.find(opt => opt.name === 'channel') as CommandStringOption;
 
-                // console.log('Options extracted:');
-                // console.log('- Sell threshold:', sellThreshold);
-                // console.log('- Hold threshold:', holdThreshold);
-                // console.log('- Channel ID:', channel);
-                // console.log('Raw options:', JSON.stringify(interaction.data.options, null, 2));
+                if (!sellThresholdOption || !holdThresholdOption || !channelOption) {
+                    return {
+                        type: InteractionResponseType.ChannelMessageWithSource,
+                        data: {
+                            content: 'Missing required options.',
+                            flags: 64 // Ephemeral flag
+                        }
+                    };
+                }
 
-                // console.log('Step 3: Validating thresholds...');
-                
+                const sellThreshold = sellThresholdOption.value;
+                const holdThreshold = holdThresholdOption.value;
+                const channel = channelOption.value;
+
                 // Validate thresholds
                 if (sellThreshold <= holdThreshold) {
-                    // console.log('Validation failed: sell threshold must be higher than hold threshold');
                     return {
-                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                        type: InteractionResponseType.ChannelMessageWithSource,
                         data: {
                             content: 'Sell threshold must be higher than hold threshold.',
                             flags: 64 // Ephemeral flag
@@ -303,45 +366,29 @@ async function handleInteraction(interaction) {
                     };
                 }
                 
-                // console.log('Step 4: Thresholds validated, preparing to save settings...');
-                
-                const settingsToSave = {
+                const settingsToSave: NotificationSettings = {
                     sellThreshold,
                     holdThreshold,
                     channelId: channel,
                     lastNotified: null,
-                    lastAction: null  // Track last action (SELL/BUY) instead of cooldown
+                    lastAction: null
                 };
-                
-                // console.log('Settings to save:', JSON.stringify(settingsToSave, null, 2));
-
-                // console.log('Step 5: Calling saveNotificationSettings...');
                 
                 // Save notification settings
                 await saveNotificationSettings(settingsToSave);
-                
-                // console.log('Step 6: Settings saved successfully, preparing response...');
 
-                const responseData = {
-                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                return {
+                    type: InteractionResponseType.ChannelMessageWithSource,
                     data: {
                         content: `Notifications set up successfully!\nSell threshold: ${sellThreshold.toLocaleString()} gold\nHold threshold: ${holdThreshold.toLocaleString()} gold\nNotifications will be sent to <#${channel}>`,
                         flags: 64 // Ephemeral flag
                     }
                 };
-                
-                // console.log('Step 7: Response prepared:', JSON.stringify(responseData, null, 2));
-                // console.log('=== NOTIFY COMMAND COMPLETED SUCCESSFULLY ===');
-
-                return responseData;
             } catch (error) {
-                // console.error('=== NOTIFY COMMAND ERROR ===');
                 console.error('Error in notify command:', error);
-                // console.error('Error stack:', error.stack);
-                // console.error('Error message:', error.message);
                 
                 return {
-                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                    type: InteractionResponseType.ChannelMessageWithSource,
                     data: {
                         content: 'Sorry, I encountered an error while setting up notifications.',
                         flags: 64 // Ephemeral flag
@@ -352,17 +399,29 @@ async function handleInteraction(interaction) {
 
         // Unknown command
         return {
-            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            type: InteractionResponseType.ChannelMessageWithSource,
             data: {
                 content: 'Unknown command',
                 flags: 64 // Ephemeral flag
             }
         };
     }
+
+    // Unknown interaction type
+    return {
+        type: InteractionResponseType.ChannelMessageWithSource,
+        data: {
+            content: 'Unknown interaction type',
+            flags: 64 // Ephemeral flag
+        }
+    };
 }
 
 // Export the handler for Vercel
-module.exports = async (req, res) => {
+export default async function handler(
+    req: VercelRequestWithRawBody,
+    res: VercelResponse
+): Promise<VercelResponse> {
     // Only allow POST requests
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
@@ -378,8 +437,8 @@ module.exports = async (req, res) => {
     } catch (error) {
         console.error('Error handling interaction:', error);
         return res.status(400).json({ 
-            error: error.message,
-            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            error: error instanceof Error ? error.message : 'Unknown error',
+            details: process.env.NODE_ENV === 'development' && error instanceof Error ? error.stack : undefined
         });
     }
-}; 
+} 

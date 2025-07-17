@@ -1,7 +1,27 @@
-require('dotenv').config();
-const { Client, Collection, GatewayIntentBits, Events } = require('discord.js');
-const fs = require('node:fs');
-const path = require('node:path');
+import 'dotenv/config';
+import { 
+    Client, 
+    Collection, 
+    GatewayIntentBits, 
+    Events, 
+    ChatInputCommandInteraction,
+    SlashCommandBuilder
+} from 'discord.js';
+import { readdir } from 'node:fs/promises';
+import { join } from 'node:path';
+
+// Define the command interface
+interface Command {
+    data: SlashCommandBuilder;
+    execute: (interaction: ChatInputCommandInteraction) => Promise<void>;
+}
+
+// Extend the Client interface to include commands collection
+declare module 'discord.js' {
+    export interface Client {
+        commands: Collection<string, Command>;
+    }
+}
 
 // Create a new client instance
 const client = new Client({
@@ -16,30 +36,33 @@ const client = new Client({
 });
 
 // Create a new commands collection
-client.commands = new Collection();
+client.commands = new Collection<string, Command>();
 
 // Load commands
-const commandsPath = path.join(__dirname, 'commands');
-const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+async function loadCommands(): Promise<void> {
+    const commandsPath = join(__dirname, 'commands');
+    const commandFiles = (await readdir(commandsPath)).filter(file => file.endsWith('.ts'));
 
-for (const file of commandFiles) {
-    const filePath = path.join(commandsPath, file);
-    const command = require(filePath);
-    if ('data' in command && 'execute' in command) {
-        client.commands.set(command.data.name, command);
-    } else {
-        console.log(`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`);
+    for (const file of commandFiles) {
+        const filePath = join(commandsPath, file);
+        const command = await import(filePath) as { default: Command };
+        
+        if ('data' in command.default && 'execute' in command.default) {
+            client.commands.set(command.default.data.name, command.default);
+        } else {
+            console.log(`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`);
+        }
     }
 }
 
 // When the client is ready, run this code (only once)
-client.once(Events.ClientReady, readyClient => {
+client.once(Events.ClientReady, (readyClient) => {
     console.log(`Ready! Logged in as ${readyClient.user.tag}`);
     console.log(`Bot is in ${client.guilds.cache.size} servers`);
 });
 
 // Handle slash commands
-client.on(Events.InteractionCreate, async interaction => {
+client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
 
     const command = client.commands.get(interaction.commandName);
@@ -62,7 +85,7 @@ client.on(Events.InteractionCreate, async interaction => {
 });
 
 // Add error handling
-client.on('error', error => {
+client.on('error', (error: Error) => {
     console.error('Discord client error:', error);
 });
 
@@ -77,14 +100,14 @@ client.on('reconnecting', () => {
 });
 
 // Handle rate limits
-client.on('rateLimit', (rateLimitInfo) => {
+client.on('rateLimit', (rateLimitInfo: any) => {
     console.log('Rate limit hit:', rateLimitInfo);
 });
 
 // Handle shutdown
 let isShuttingDown = false;
 
-async function shutdown() {
+async function shutdown(): Promise<void> {
     if (isShuttingDown) return;
     isShuttingDown = true;
 
@@ -118,7 +141,7 @@ let reconnectAttempts = 0;
 const maxReconnectAttempts = 5;
 const reconnectDelay = 5000; // 5 seconds
 
-async function login() {
+async function login(): Promise<void> {
     try {
         await client.login(process.env.DISCORD_TOKEN);
         reconnectAttempts = 0; // Reset attempts on successful login
@@ -136,7 +159,21 @@ async function login() {
     }
 }
 
-// Start the bot if not in production
-if (process.env.NODE_ENV !== 'production') {
-    login();
-} 
+// Initialize the bot
+async function init(): Promise<void> {
+    try {
+        // Load commands first
+        await loadCommands();
+        
+        // Start the bot if not in production
+        if (process.env.NODE_ENV !== 'production') {
+            await login();
+        }
+    } catch (error) {
+        console.error('Failed to initialize bot:', error);
+        process.exit(1);
+    }
+}
+
+// Start the bot
+init(); 
