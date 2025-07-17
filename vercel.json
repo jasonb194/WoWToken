@@ -1,26 +1,25 @@
 {
   "version": 2,
+  "buildCommand": null,
+  "outputDirectory": null,
+  "installCommand": "pnpm install",
   "functions": {
-    "api/**/*.js": {
+    "api/**/*.ts": {
       "maxDuration": 300
     }
   },
   "routes": [
     {
       "src": "/api/check-prices",
-      "dest": "/api/check-prices.js"
+      "dest": "/api/check-prices.ts"
     },
     {
       "src": "/api/interactions",
-      "dest": "/api/interactions.js"
-    },
-    {
-      "src": "/api/test",
-      "dest": "/api/test.js"
+      "dest": "/api/interactions.ts"
     },
     {
       "src": "/api/(.*)",
-      "dest": "/api/index.js"
+      "dest": "/api/index.ts"
     }
   ]
 } 

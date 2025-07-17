@@ -3,6 +3,52 @@ import axios from 'axios';
 import supabase from '../lib/supabase';
 import Logger from '../lib/logger';
 
+// Utility function to safely convert unknown errors to logger metadata
+function errorToLogMetadata(error: unknown): Record<string, unknown> {
+    if (error === null || error === undefined) {
+        return { error: null };
+    }
+    
+    if (typeof error === 'string') {
+        return { error, message: error };
+    }
+    
+    if (error instanceof Error) {
+        return {
+            name: error.name,
+            message: error.message,
+            stack: error.stack
+        };
+    }
+    
+    if (typeof error === 'object') {
+        try {
+            return JSON.parse(JSON.stringify(error));
+        } catch {
+            return { error: String(error) };
+        }
+    }
+    
+    return { error: String(error) };
+}
+
+// Utility function to safely convert objects to logger metadata
+function objectToLogMetadata(obj: unknown): Record<string, unknown> {
+    if (obj === null || obj === undefined) {
+        return {};
+    }
+    
+    if (typeof obj === 'object') {
+        try {
+            return JSON.parse(JSON.stringify(obj));
+        } catch {
+            return { data: String(obj) };
+        }
+    }
+    
+    return { data: obj as unknown };
+}
+
 const CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes in milliseconds
 const NOTIFICATION_COOLDOWN = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
 
@@ -71,7 +117,7 @@ async function getAccessToken(logger: Logger): Promise<string> {
                 headers: error.response?.headers
             });
         } else {
-            logger.error('Error getting access token', error);
+            logger.error('Error getting access token', errorToLogMetadata(error));
         }
         throw new Error('Failed to get access token');
     }
@@ -125,7 +171,7 @@ async function getTokenPrice(region: string, accessToken: string, logger: Logger
                 headers: error.response?.headers
             });
         } else {
-            logger.error(`Error getting token price for ${region}`, error);
+            logger.error(`Error getting token price for ${region}`, errorToLogMetadata(error));
         }
         throw new Error(`Failed to get token price for ${region}`);
     }
@@ -143,7 +189,7 @@ async function loadNotificationSettings(logger: Logger): Promise<NotificationSet
             .single<DatabaseNotificationSettings>();
         
         if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
-            logger.error('Error loading notification settings', error);
+            logger.error('Error loading notification settings', errorToLogMetadata(error));
             return {
                 channelId: process.env.DEFAULT_CHANNEL_ID || '',
                 sellThreshold: 250000,
@@ -168,7 +214,7 @@ async function loadNotificationSettings(logger: Logger): Promise<NotificationSet
             };
         }
         
-        logger.info('Raw loaded data', data);
+        logger.info('Raw loaded data', objectToLogMetadata(data));
         
         // Convert lastNotified timestamp to number for comparison
         let lastNotified: number | null = null;
@@ -188,7 +234,7 @@ async function loadNotificationSettings(logger: Logger): Promise<NotificationSet
             currentPrice: data.current_price
         };
         
-        logger.info('Final processed settings', settings);
+        logger.info('Final processed settings', objectToLogMetadata(settings));
         logger.info('LOAD NOTIFICATION SETTINGS (CHECKPRICES) COMPLETED');
         return settings;
     } catch (error) {
@@ -199,7 +245,7 @@ async function loadNotificationSettings(logger: Logger): Promise<NotificationSet
                 stack: error.stack
             });
         } else {
-            logger.error('Error loading notification settings', error);
+            logger.error('Error loading notification settings', errorToLogMetadata(error));
         }
         return {
             channelId: process.env.DEFAULT_CHANNEL_ID || '',
@@ -250,7 +296,7 @@ async function updateNotificationState(
             });
         
         if (error) {
-            logger.error('Error updating notification state', error);
+            logger.error('Error updating notification state', errorToLogMetadata(error));
         } else {
             logger.info('Notification state updated successfully');
             logger.info('UPDATE NOTIFICATION STATE COMPLETED');
@@ -263,7 +309,7 @@ async function updateNotificationState(
                 stack: error.stack
             });
         } else {
-            logger.error('Error updating notification state', error);
+            logger.error('Error updating notification state', errorToLogMetadata(error));
         }
     }
 }
@@ -299,7 +345,7 @@ async function sendNotificationToChannel(channelId: string, message: string, log
                 stack: error.stack
             });
         } else {
-            logger.error('Error sending notification', error);
+            logger.error('Error sending notification', errorToLogMetadata(error));
         }
         throw error;
     }
@@ -350,8 +396,8 @@ async function editDiscordMessage(channelId: string, messageId: string, newMessa
             if (client) {
                 await client.destroy();
             }
-        } catch (destroyError) {
-            logger.error('Error destroying client', destroyError);
+                    } catch (destroyError) {
+                logger.error('Error destroying client', errorToLogMetadata(destroyError));
         }
         return false;
     }
@@ -460,7 +506,7 @@ async function checkPrices(): Promise<CheckPricesResult> {
                         stack: error.stack
                     });
                 } else {
-                    logger.error(`Error checking prices for ${region}`, error);
+                    logger.error(`Error checking prices for ${region}`, errorToLogMetadata(error));
                 }
             }
         }
@@ -475,7 +521,7 @@ async function checkPrices(): Promise<CheckPricesResult> {
                 stack: error.stack
             });
         } else {
-            logger.error('Error in checkPrices', error);
+            logger.error('Error in checkPrices', errorToLogMetadata(error));
         }
         await logger.flush();
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error', timestamp: new Date().toISOString() };
